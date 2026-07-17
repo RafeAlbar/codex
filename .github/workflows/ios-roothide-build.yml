@@ -27,6 +27,17 @@ jobs:
         with:
           targets: aarch64-apple-ios
 
+      - name: Cache Cargo build
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            codex-rs/target
+          key: ios-cargo-${{ runner.os }}-${{ hashFiles('codex-rs/Cargo.lock') }}
+          restore-keys: |
+            ios-cargo-${{ runner.os }}-
+
       - name: Show iOS build environment
         shell: bash
         run: |
