@@ -1,0 +1,70 @@
+name: ios-roothide-build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Codex for jailbroken iOS
+    runs-on: macos-15
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: codex-rs
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+      IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Show iOS build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Build Codex CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build \
+            --locked \
+            --release \
+            --target aarch64-apple-ios \
+            --package codex-cli \
+            --bin codex
+
+      - name: Ad-hoc sign and inspect binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="target/aarch64-apple-ios/release/codex"
+          codesign --force --sign - "$binary"
+          mkdir -p ../dist
+          cp "$binary" ../dist/codex-ios-arm64
+          file ../dist/codex-ios-arm64
+          codesign --display --verbose=4 ../dist/codex-ios-arm64
+          shasum -a 256 ../dist/codex-ios-arm64 > ../dist/codex-ios-arm64.sha256
+
+      - name: Upload iOS binary
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: codex-ios-arm64
+          path: |
+            dist/codex-ios-arm64
+            dist/codex-ios-arm64.sha256
+          if-no-files-found: error
+          retention-days: 7
