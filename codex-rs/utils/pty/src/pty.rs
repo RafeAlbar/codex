@@ -311,14 +311,16 @@ async fn spawn_process_preserving_fds(
     let stdin = slave.try_clone()?;
     let stdout = slave.try_clone()?;
     let stderr = slave.try_clone()?;
-    let inherited_fds = inherited_fds.to_vec();
+    command
+        .stdin(Stdio::from(stdin))
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr));
 
-    unsafe {
-        command
-            .stdin(Stdio::from(stdin))
-            .stdout(Stdio::from(stdout))
-            .stderr(Stdio::from(stderr))
-            .pre_exec(move || {
+    #[cfg(not(target_os = "ios"))]
+    {
+        let inherited_fds = inherited_fds.to_vec();
+        unsafe {
+            command.pre_exec(move || {
                 for signo in &[
                     libc::SIGCHLD,
                     libc::SIGHUP,
@@ -348,7 +350,12 @@ async fn spawn_process_preserving_fds(
                 close_inherited_fds_except(&inherited_fds);
                 Ok(())
             });
+        }
     }
+    // As with pipe-backed commands, keeping the command free of `pre_exec`
+    // lets Apple's process implementation use `posix_spawn` on iOS.
+    #[cfg(target_os = "ios")]
+    let _ = inherited_fds;
 
     let mut child = command.spawn()?;
     drop(slave);

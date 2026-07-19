@@ -132,9 +132,9 @@ async fn spawn_process_with_stdin_mode(
     }
     #[cfg(target_os = "linux")]
     let parent_pid = unsafe { libc::getpid() };
-    #[cfg(unix)]
+    #[cfg(all(unix, not(target_os = "ios")))]
     let inherited_fds = inherited_fds.to_vec();
-    #[cfg(unix)]
+    #[cfg(all(unix, not(target_os = "ios")))]
     unsafe {
         command.pre_exec(move || {
             crate::process_group::detach_from_tty()?;
@@ -144,6 +144,10 @@ async fn spawn_process_with_stdin_mode(
             Ok(())
         });
     }
+    // Avoid `pre_exec` on iOS so `std::process::Command` can use
+    // `posix_spawn`; fork-style process setup is rejected on device.
+    #[cfg(target_os = "ios")]
+    let _ = inherited_fds;
     #[cfg(not(unix))]
     let _ = arg0;
     command.current_dir(cwd);
