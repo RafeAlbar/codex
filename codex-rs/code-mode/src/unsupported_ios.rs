@@ -200,9 +200,10 @@ impl CodeModeSessionProvider for InProcessCodeModeSessionProvider {
     }
 }
 
+#[derive(Clone)]
 pub struct InProcessCodeModeSession {
     delegate: Arc<dyn CodeModeSessionDelegate>,
-    stored_values: Mutex<HashMap<String, JsonValue>>,
+    stored_values: Arc<Mutex<HashMap<String, JsonValue>>>,
 }
 
 impl InProcessCodeModeSession {
@@ -213,7 +214,7 @@ impl InProcessCodeModeSession {
     pub fn with_delegate(delegate: Arc<dyn CodeModeSessionDelegate>) -> Self {
         Self {
             delegate,
-            stored_values: Mutex::new(HashMap::new()),
+            stored_values: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -226,9 +227,13 @@ impl InProcessCodeModeSession {
 
     pub async fn execute(&self, request: ExecuteRequest) -> Result<StartedCell, String> {
         let cell_id = CellId::new(format!("ios-node-{}", request.tool_call_id));
-        let response = self.execute_with_node(&cell_id, request).await;
         let (response_tx, response_rx) = oneshot::channel();
-        let _ = response_tx.send(response);
+        let session = self.clone();
+        let task_cell_id = cell_id.clone();
+        tokio::spawn(async move {
+            let response = session.execute_with_node(&task_cell_id, request).await;
+            let _ = response_tx.send(response);
+        });
         Ok(StartedCell::from_result_receiver(cell_id, response_rx))
     }
 
