@@ -16,6 +16,9 @@ pub fn pre_main_hardening() {
     #[cfg(target_os = "macos")]
     pre_main_hardening_macos();
 
+    #[cfg(target_os = "ios")]
+    set_core_file_size_limit_to_zero();
+
     // On FreeBSD and OpenBSD, apply similar hardening to Linux/macOS:
     #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
     pre_main_hardening_bsd();
@@ -34,6 +37,7 @@ const PTRACE_DENY_ATTACH_FAILED_EXIT_CODE: i32 = 6;
     target_os = "linux",
     target_os = "android",
     target_os = "macos",
+    target_os = "ios",
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd"

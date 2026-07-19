@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::path::PathBuf;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use tempfile::Builder;
 
 #[derive(Debug, Clone)]
