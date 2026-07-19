@@ -58,7 +58,7 @@ pub fn detect_shell_type(shell_path: impl AsRef<std::path::Path>) -> Option<Shel
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "ios")))]
 fn get_user_shell_path() -> Option<PathBuf> {
     let uid = unsafe { libc::getuid() };
     use std::ffi::CStr;
@@ -117,6 +117,18 @@ fn get_user_shell_path() -> Option<PathBuf> {
         }
         buffer.resize(new_len, 0);
     }
+}
+
+#[cfg(target_os = "ios")]
+fn get_user_shell_path() -> Option<PathBuf> {
+    let fixed_home = std::env::var_os("CFFIXED_USER_HOME")?;
+    let jbroot = std::path::Path::new(&fixed_home)
+        .parent()
+        .and_then(std::path::Path::parent)?;
+    ["usr/bin/zsh", "usr/bin/dash"]
+        .into_iter()
+        .map(|relative_path| jbroot.join(relative_path))
+        .find(|path| path.is_file())
 }
 
 #[cfg(not(unix))]
